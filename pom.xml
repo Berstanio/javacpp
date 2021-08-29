@@ -192,7 +192,7 @@
             <!-- Pull in the bnd generated manifest -->
             <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
             <manifest>
-              <mainClass>org.bytedeco.javacpp.tools.Builder</mainClass>
+              <mainClass>com.oracle.svm.shadowed.org.bytedeco.javacpp.tools.Builder</mainClass>
             </manifest>
             <manifestEntries>
               <Implementation-Title>${project.name}</Implementation-Title>
@@ -344,7 +344,7 @@
 # unavailable then the indexers will fall back to
 # other implementations.
 
-Bundle-SymbolicName: org.bytedeco.javacpp
+Bundle-SymbolicName: com.oracle.svm.shadowed.org.bytedeco.javacpp
 Import-Package: \
  !org.apache.maven.*,\
  sun.misc;resolution:=optional,\
@@ -446,7 +446,7 @@ Import-Package: \
               </execution>
             </executions>
             <configuration>
-              <mainClass>org.bytedeco.javacpp.tools.Builder</mainClass>
+              <mainClass>com.oracle.svm.shadowed.org.bytedeco.javacpp.tools.Builder</mainClass>
               <arguments>
                 <argument>-classpath</argument>
                 <argument>${project.build.outputDirectory}</argument>
@@ -457,8 +457,8 @@ Import-Package: \
                 <argument>${javacpp.platform}${javacpp.platform.suffix}</argument>
                 <argument>-Dplatform.root=${javacpp.platform.root}</argument>
                 <argument>-Dplatform.compiler=${javacpp.platform.compiler}</argument>
-                <argument>org.bytedeco.javacpp.Pointer</argument>
-                <argument>org.bytedeco.javacpp.presets.javacpp</argument>
+                <argument>com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer</argument>
+                <argument>com.oracle.svm.shadowed.org.bytedeco.javacpp.presets.javacpp</argument>
                 <argument>-mod</argument>
                 <argument>${project.build.directory}/generated-sources/java9/module-info.java</argument>
               </arguments>
@@ -538,8 +538,8 @@ Import-Package: \
 # unavailable then the indexers will fall back to
 # other implementations.
 
-Bundle-SymbolicName: org.bytedeco.javacpp.${javacpp.platform}
-Fragment-Host: org.bytedeco.javacpp
+Bundle-SymbolicName: com.oracle.svm.shadowed.org.bytedeco.javacpp.${javacpp.platform}
+Fragment-Host: com.oracle.svm.shadowed.org.bytedeco.javacpp
 Import-Package: \
  !org.apache.maven.*,\
  sun.misc;resolution:=optional,\

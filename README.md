@@ -122,32 +122,47 @@ namespace NativeLibrary {
 ```
 
 To get the job done with JavaCPP, we can easily define a Java class such as this one--although one could use the `Parser` to produce it from the header file as demonstrated by the [JavaCPP Presets](https://github.com/bytedeco/javacpp-presets) subproject, following the principles outlined in the [Mapping Recipes for C/C++ Libraries](https://github.com/bytedeco/javacpp/wiki/Mapping-Recipes):
-```java
-import org.bytedeco.javacpp.*;
-import org.bytedeco.javacpp.annotation.*;
 
-@Platform(include="NativeLibrary.h")
+```java
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Namespace;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.StdString;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.*;
+
+@Platform(include = "NativeLibrary.h")
 @Namespace("NativeLibrary")
 public class NativeLibrary {
-    public static class NativeClass extends Pointer {
-        static { Loader.load(); }
-        public NativeClass() { allocate(); }
-        private native void allocate();
+	public static class NativeClass extends Pointer {
+		static {Loader.load();}
 
-        // to call the getter and setter functions 
-        public native @StdString String get_property(); public native void set_property(String property);
+		public NativeClass () {
+			allocate();
+		}
 
-        // to access the member variable directly
-        public native @StdString String property();     public native void property(String property);
-    }
+		private native void allocate ();
 
-    public static void main(String[] args) {
-        // Pointer objects allocated in Java get deallocated once they become unreachable,
-        // but C++ destructors can still be called in a timely fashion with Pointer.deallocate()
-        NativeClass l = new NativeClass();
-        l.set_property("Hello World!");
-        System.out.println(l.property());
-    }
+		// to call the getter and setter functions 
+		public native @StdString
+		String get_property ();
+
+		public native void set_property (String property);
+
+		// to access the member variable directly
+		public native @StdString
+		String property ();
+
+		public native void property (String property);
+	}
+
+	public static void main (String[] args) {
+		// Pointer objects allocated in Java get deallocated once they become unreachable,
+		// but C++ destructors can still be called in a timely fashion with Pointer.deallocate()
+		NativeClass l = new NativeClass();
+		l.set_property("Hello World!");
+		System.out.println(l.property());
+	}
 }
 ```
 
@@ -160,58 +175,97 @@ Hello World!
 
 ### Using Complex C++ Types
 To demonstrate its relative ease of use even in the face of complex data types, imagine we had a C++ function that took a `vector<vector<void*> >` as argument. To support that type, we could define a bare-bones class like this:
-```java
-import org.bytedeco.javacpp.*;
-import org.bytedeco.javacpp.annotation.*;
 
-@Platform(include="<vector>")
+```java
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.PointerPointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.ByRef;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Cast;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Index;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Name;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.StdVector;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.*;
+
+@Platform(include = "<vector>")
 public class VectorTest {
 
-    @Name("std::vector<std::vector<void*> >")
-    public static class PointerVectorVector extends Pointer {
-        static { Loader.load(); }
-        public PointerVectorVector()       { allocate();  }
-        public PointerVectorVector(long n) { allocate(n); }
-        public PointerVectorVector(Pointer p) { super(p); } // this = (vector<vector<void*> >*)p
-        private native void allocate();                  // this = new vector<vector<void*> >()
-        private native void allocate(long n);            // this = new vector<vector<void*> >(n)
-        @Name("operator=")
-        public native @ByRef PointerVectorVector put(@ByRef PointerVectorVector x);
+	@Name("std::vector<std::vector<void*> >")
+	public static class PointerVectorVector extends Pointer {
+		static {Loader.load();}
 
-        @Name("operator[]")
-        public native @StdVector PointerPointer get(long n);
-        public native @StdVector PointerPointer at(long n);
+		public PointerVectorVector () {
+			allocate();
+		}
 
-        public native long size();
-        public native @Cast("bool") boolean empty();
-        public native void resize(long n);
-        public native @Index long size(long i);                   // return (*this)[i].size()
-        public native @Index @Cast("bool") boolean empty(long i); // return (*this)[i].empty()
-        public native @Index void resize(long i, long n);         // (*this)[i].resize(n)
+		public PointerVectorVector (long n) {
+			allocate(n);
+		}
 
-        public native @Index Pointer get(long i, long j);  // return (*this)[i][j]
-        public native void put(long i, long j, Pointer p); // (*this)[i][j] = p
-    }
+		public PointerVectorVector (Pointer p) {
+			super(p);
+		} // this = (vector<vector<void*> >*)p
 
-    public static void main(String[] args) {
-        PointerVectorVector v = new PointerVectorVector(13);
-        v.resize(0, 42); // v[0].resize(42)
-        Pointer p = new Pointer() { { address = 0xDEADBEEFL; } };
-        v.put(0, 0, p);  // v[0][0] = p
+		private native void allocate ();                  // this = new vector<vector<void*> >()
 
-        PointerVectorVector v2 = new PointerVectorVector().put(v);
-        Pointer p2 = v2.get(0).get(); // p2 = *(&v[0][0])
-        System.out.println(v2.size() + " " + v2.size(0) + "  " + p2);
+		private native void allocate (long n);            // this = new vector<vector<void*> >(n)
 
-        v2.at(42);
-    }
+		@Name("operator=")
+		public native @ByRef
+		PointerVectorVector put (@ByRef PointerVectorVector x);
+
+		@Name("operator[]")
+		public native @StdVector
+		PointerPointer get (long n);
+
+		public native @StdVector
+		PointerPointer at (long n);
+
+		public native long size ();
+
+		public native @Cast("bool")
+		boolean empty ();
+
+		public native void resize (long n);
+
+		public native @Index
+		long size (long i);                   // return (*this)[i].size()
+
+		public native @Index
+		@Cast("bool")
+		boolean empty (long i); // return (*this)[i].empty()
+
+		public native @Index
+		void resize (long i, long n);         // (*this)[i].resize(n)
+
+		public native @Index
+		Pointer get (long i, long j);  // return (*this)[i][j]
+
+		public native void put (long i, long j, Pointer p); // (*this)[i][j] = p
+	}
+
+	public static void main (String[] args) {
+		PointerVectorVector v = new PointerVectorVector(13);
+		v.resize(0, 42); // v[0].resize(42)
+		Pointer p = new Pointer() {
+			{address = 0xDEADBEEFL;}
+		};
+		v.put(0, 0, p);  // v[0][0] = p
+
+		PointerVectorVector v2 = new PointerVectorVector().put(v);
+		Pointer p2 = v2.get(0).get(); // p2 = *(&v[0][0])
+		System.out.println(v2.size() + " " + v2.size(0) + "  " + p2);
+
+		v2.at(42);
+	}
 }
 ```
 
 Executing that program using this command produces the following output:
 ```bash
 $ java -jar javacpp.jar VectorTest.java -exec
-13 42  org.bytedeco.javacpp.Pointer[address=0xdeadbeef,position=0,limit=0,capacity=0,deallocator=null]
+13 42  Pointer[address=0xdeadbeef,position=0,limit=0,capacity=0,deallocator=null]
 Exception in thread "main" java.lang.RuntimeException: vector::_M_range_check: __n (which is 42) >= this->size() (which is 13)
 	at VectorTest$PointerVectorVector.at(Native Method)
 	at VectorTest.main(VectorTest.java:44)
@@ -244,19 +298,21 @@ static inline void process(void *buffer, int size) {
 ```
 
 After adjusting the Java source code to something like this:
+
 ```java
-import org.bytedeco.javacpp.*;
-import org.bytedeco.javacpp.annotation.*;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.*;
 
-@Platform(include="Processor.h")
+@Platform(include = "Processor.h")
 public class Processor {
-    static { Loader.load(); }
+	static {Loader.load();}
 
-    public static native void process(java.nio.Buffer buffer, int size);
+	public static native void process (java.nio.Buffer buffer, int size);
 
-    public static void main(String[] args) {
-        process(null, 0);
-    }
+	public static void main (String[] args) {
+		process(null, 0);
+	}
 }
 ```
 
@@ -288,30 +344,41 @@ int main() {
 We may then declare that function to a `call()` or `apply()` method defined in a `FunctionPointer` as follows:
 
 ```java
-import org.bytedeco.javacpp.*;
-import org.bytedeco.javacpp.annotation.*;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.FunctionPointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.IntPointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.ByVal;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Name;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Namespace;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.*;
 
-@Platform(include="<algorithm>")
+@Platform(include = "<algorithm>")
 @Namespace("std")
 public class Foo {
-    static { Loader.load(); }
+	static {Loader.load();}
 
-    public static class Callback extends FunctionPointer {
-        // Loader.load() and allocate() are required only when explicitly creating an instance
-        static { Loader.load(); }
-        protected Callback() { allocate(); }
-        private native void allocate();
+	public static class Callback extends FunctionPointer {
+		// Loader.load() and allocate() are required only when explicitly creating an instance
+		static {Loader.load();}
 
-        public @Name("foo") boolean call(int a, int b) throws Exception { 
-            throw new Exception("bar " + a * b);
-        }
-    }
+		protected Callback () {
+			allocate();
+		}
 
-    // We can also pass (or get) a FunctionPointer as argument to (or return value from) other functions
-    public static native void stable_sort(IntPointer first, IntPointer last, Callback compare);
+		private native void allocate ();
 
-    // And to pass (or get) it as a C++ function object, annotate with @ByVal or @ByRef
-    public static native void sort(IntPointer first, IntPointer last, @ByVal Callback compare);
+		public @Name("foo")
+		boolean call (int a, int b) throws Exception {
+			throw new Exception("bar " + a * b);
+		}
+	}
+
+	// We can also pass (or get) a FunctionPointer as argument to (or return value from) other functions
+	public static native void stable_sort (IntPointer first, IntPointer last, Callback compare);
+
+	// And to pass (or get) it as a C++ function object, annotate with @ByVal or @ByRef
+	public static native void sort (IntPointer first, IntPointer last, @ByVal Callback compare);
 }
 ```
 
@@ -346,37 +413,51 @@ void callback(Foo *foo) {
 ```
 
 The function `Foo::bar()` can be overridden in Java if we declare the method in the peer class either as `native` or `abstract` and annotate it with `@Virtual`, for example:
+
 ```java
-import org.bytedeco.javacpp.*;
-import org.bytedeco.javacpp.annotation.*;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.NoOffset;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Virtual;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.*;
 
-@Platform(include="Foo.h")
+@Platform(include = "Foo.h")
 public class VirtualFoo {
-    static { Loader.load(); }
+	static {Loader.load();}
 
-    public static class Foo extends Pointer {
-        static { Loader.load(); }
-        public Foo(int n) { allocate(n); }
-        private native void allocate(int n);
+	public static class Foo extends Pointer {
+		static {Loader.load();}
 
-        @NoOffset public native int n(); public native Foo n(int n);
-        @Virtual  public native void bar();
-    }
+		public Foo (int n) {
+			allocate(n);
+		}
 
-    public static native void callback(Foo foo);
+		private native void allocate (int n);
 
-    public static void main(String[] args) {
-        Foo foo = new Foo(13);
-        Foo foo2 = new Foo(42) {
-            public void bar() {
-                System.out.println("Callback in Java (n == " + n() + ")");
-            }
-        };
-        foo.bar();
-        foo2.bar();
-        callback(foo);
-        callback(foo2);
-    }
+		@NoOffset
+		public native int n ();
+
+		public native Foo n (int n);
+
+		@Virtual
+		public native void bar ();
+	}
+
+	public static native void callback (Foo foo);
+
+	public static void main (String[] args) {
+		Foo foo = new Foo(13);
+		Foo foo2 = new Foo(42) {
+			public void bar () {
+				System.out.println("Callback in Java (n == " + n() + ")");
+			}
+		};
+		foo.bar();
+		foo2.bar();
+		callback(foo);
+		callback(foo2);
+	}
 }
 ```
 

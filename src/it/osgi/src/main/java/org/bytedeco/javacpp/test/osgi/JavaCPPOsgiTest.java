@@ -1,4 +1,4 @@
-package org.bytedeco.javacpp.test.osgi;
+package com.oracle.svm.shadowed.org.bytedeco.javacpp.test.osgi;
 
 import static org.junit.Assert.assertEquals;
 

@@ -1,8 +1,8 @@
-package org.bytedeco.javacpp.test.osgi;
+package com.oracle.svm.shadowed.org.bytedeco.javacpp.test.osgi;
 
-import org.bytedeco.javacpp.Loader;
-import org.bytedeco.javacpp.Pointer;
-import org.bytedeco.javacpp.annotation.Platform;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Loader;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.Pointer;
+import com.oracle.svm.shadowed.org.bytedeco.javacpp.annotation.Platform;
 
 @Platform(include = "calc.h")
 public class Calc {
